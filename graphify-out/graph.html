@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>graphify - graphify-out/graph.html</title>
+<script src="https://unpkg.com/vis-network@9.1.6/standalone/umd/vis-network.min.js"
+        integrity="sha384-Ux6phic9PEHJ38YtrijhkzyJ8yQlH8i/+buBR8s3mAZOJrP1gwyvAcIYl3GWtpX1"
+        crossorigin="anonymous"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #0f0f1a; color: #e0e0e0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; display: flex; height: 100vh; overflow: hidden; }
+  #graph { flex: 1; }
+  #sidebar { width: 280px; background: #1a1a2e; border-left: 1px solid #2a2a4e; display: flex; flex-direction: column; overflow: hidden; }
+  #search-wrap { padding: 12px; border-bottom: 1px solid #2a2a4e; }
+  #search { width: 100%; background: #0f0f1a; border: 1px solid #3a3a5e; color: #e0e0e0; padding: 7px 10px; border-radius: 6px; font-size: 13px; outline: none; }
+  #search:focus { border-color: #4E79A7; }
+  #search-results { max-height: 140px; overflow-y: auto; padding: 4px 12px; border-bottom: 1px solid #2a2a4e; display: none; }
+  .search-item { padding: 4px 6px; cursor: pointer; border-radius: 4px; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .search-item:hover { background: #2a2a4e; }
+  #info-panel { padding: 14px; border-bottom: 1px solid #2a2a4e; min-height: 140px; }
+  #info-panel h3 { font-size: 13px; color: #aaa; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.05em; }
+  #info-content { font-size: 13px; color: #ccc; line-height: 1.6; }
+  #info-content .field { margin-bottom: 5px; }
+  #info-content .field b { color: #e0e0e0; }
+  #info-content .empty { color: #555; font-style: italic; }
+  .neighbor-link { display: block; padding: 2px 6px; margin: 2px 0; border-radius: 3px; cursor: pointer; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border-left: 3px solid #333; }
+  .neighbor-link:hover { background: #2a2a4e; }
+  #neighbors-list { max-height: 160px; overflow-y: auto; margin-top: 4px; }
+  #legend-wrap { flex: 1; overflow-y: auto; padding: 12px; }
+  #legend-wrap h3 { font-size: 13px; color: #aaa; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.05em; }
+  .legend-item { display: flex; align-items: center; gap: 8px; padding: 4px 0; cursor: pointer; border-radius: 4px; font-size: 12px; }
+  .legend-item:hover { background: #2a2a4e; padding-left: 4px; }
+  .legend-item.dimmed { opacity: 0.35; }
+  .legend-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+  .legend-label { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .legend-count { color: #666; font-size: 11px; }
+  #stats { padding: 10px 14px; border-top: 1px solid #2a2a4e; font-size: 11px; color: #555; }
+  #legend-controls { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; padding: 4px 0; }
+  #legend-controls label { display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 12px; color: #aaa; user-select: none; }
+  #legend-controls label:hover { color: #e0e0e0; }
+  .legend-cb, #select-all-cb { appearance: none; -webkit-appearance: none; width: 14px; height: 14px; border: 1.5px solid #3a3a5e; border-radius: 3px; background: #0f0f1a; cursor: pointer; position: relative; flex-shrink: 0; }
+  .legend-cb:checked, #select-all-cb:checked { background: #4E79A7; border-color: #4E79A7; }
+  .legend-cb:checked::after, #select-all-cb:checked::after { content: ''; position: absolute; left: 3.5px; top: 1px; width: 4px; height: 7px; border: solid #fff; border-width: 0 2px 2px 0; transform: rotate(45deg); }
+  #select-all-cb:indeterminate { background: #4E79A7; border-color: #4E79A7; }
+  #select-all-cb:indeterminate::after { content: ''; position: absolute; left: 2px; top: 5px; width: 8px; height: 2px; background: #fff; border: none; transform: none; }
+</style>
+</head>
+<body>
+<div id="graph"></div>
+<div id="sidebar">
+  <div id="search-wrap">
+    <input id="search" type="text" placeholder="Search nodes..." autocomplete="off">
+    <div id="search-results"></div>
+  </div>
+  <div id="info-panel">
+    <h3>Node Info</h3>
+    <div id="info-content"><span class="empty">Click a node to inspect it</span></div>
+  </div>
+  <div id="legend-wrap">
+    <h3>Communities</h3>
+    <div id="legend-controls">
+      <label><input type="checkbox" id="select-all-cb" checked onchange="toggleAllCommunities(!this.checked)">Select All</label>
+    </div>
+    <div id="legend"></div>
+  </div>
+  <div id="stats">67 nodes &middot; 72 edges &middot; 9 communities</div>
+</div>
+<script>
+const RAW_NODES = [{"id": "launch_shreya_birthday_config", "label": "shreya-birthday launch config (python http.server :7771)", "color": {"background": "#9C755F", "border": "#9C755F", "highlight": {"background": "#ffffff", "border": "#9C755F"}}, "size": 10.0, "font": {"size": 0, "color": "#ffffff"}, "title": "shreya-birthday launch config (python http.server :7771)", "community": 8, "community_name": "Local Dev Server Config", "source_file": ".claude/launch.json", "file_type": "document", "degree": 0}, {"id": "readme_birthday_website", "label": "README: Happy Birthday Shreya website", "color": {"background": "#F28E2B", "border": "#F28E2B", "highlight": {"background": "#ffffff", "border": "#F28E2B"}}, "size": 12.1, "font": {"size": 0, "color": "#ffffff"}, "title": "README: Happy Birthday Shreya website", "community": 1, "community_name": "Countdown & Core State", "source_file": "README.md", "file_type": "document", "degree": 1}, {"id": "plan_shreya_birthday", "label": "Shreya Birthday Website Implementation Plan", "color": {"background": "#F28E2B", "border": "#F28E2B", "highlight": {"background": "#ffffff", "border": "#F28E2B"}}, "size": 14.3, "font": {"size": 0, "color": "#ffffff"}, "title": "Shreya Birthday Website Implementation Plan", "community": 1, "community_name": "Countdown & Core State", "source_file": "docs/superpowers/plans/2026-05-23-shreya-birthday.md", "file_type": "document", "degree": 2}, {"id": "design_shreya_birthday_spec", "label": "Shreya's Birthday Website Design Spec", "color": {"background": "#F28E2B", "border": "#F28E2B", "highlight": {"background": "#ffffff", "border": "#F28E2B"}}, "size": 22.9, "font": {"size": 12, "color": "#ffffff"}, "title": "Shreya&#x27;s Birthday Website Design Spec", "community": 1, "community_name": "Countdown & Core State", "source_file": "docs/superpowers/specs/2026-05-23-shreya-birthday-design.md", "file_type": "document", "degree": 6}, {"id": "concept_locked_state", "label": "Locked Countdown State", "color": {"background": "#F28E2B", "border": "#F28E2B", "highlight": {"background": "#ffffff", "border": "#F28E2B"}}, "size": 16.4, "font": {"size": 12, "color": "#ffffff"}, "title": "Locked Countdown State", "community": 1, "community_name": "Countdown & Core State", "source_file": "docs/superpowers/specs/2026-05-23-shreya-birthday-design.md", "file_type": "concept", "degree": 3}, {"id": "concept_unlock_sequence", "label": "Cinematic Midnight Unlock Sequence", "color": {"background": "#F28E2B", "border": "#F28E2B", "highlight": {"background": "#ffffff", "border": "#F28E2B"}}, "size": 16.4, "font": {"size": 12, "color": "#ffffff"}, "title": "Cinematic Midnight Unlock Sequence", "community": 1, "community_name": "Countdown & Core State", "source_file": "docs/superpowers/specs/2026-05-23-shreya-birthday-design.md", "file_type": "concept", "degree": 3}, {"id": "concept_single_file_no_build", "label": "Single index.html, no build tools (CDN-only)", "color": {"background": "#F28E2B", "border": "#F28E2B", "highlight": {"background": "#ffffff", "border": "#F28E2B"}}, "size": 12.1, "font": {"size": 0, "color": "#ffffff"}, "title": "Single index.html, no build tools (CDN-only)", "community": 1, "community_name": "Countdown & Core State", "source_file": "docs/superpowers/specs/2026-05-23-shreya-birthday-design.md", "file_type": "rationale", "degree": 1}, {"id": "concept_dom_hidden_reveal", "label": "All content in DOM at load, hidden via display:none until unlock", "color": {"background": "#F28E2B", "border": "#F28E2B", "highlight": {"background": "#ffffff", "border": "#F28E2B"}}, "size": 12.1, "font": {"size": 0, "color": "#ffffff"}, "title": "All content in DOM at load, hidden via display:none until unlock", "community": 1, "community_name": "Countdown & Core State", "source_file": "docs/superpowers/specs/2026-05-23-shreya-birthday-design.md", "file_type": "rationale", "degree": 1}, {"id": "concept_tum_hi_ho_music", "label": "Tum Hi Ho music via hidden YouTube iframe", "color": {"background": "#F28E2B", "border": "#F28E2B", "highlight": {"background": "#ffffff", "border": "#F28E2B"}}, "size": 14.3, "font": {"size": 0, "color": "#ffffff"}, "title": "Tum Hi Ho music via hidden YouTube iframe", "community": 1, "community_name": "Countdown & Core State", "source_file": "docs/superpowers/specs/2026-05-23-shreya-birthday-design.md", "file_type": "concept", "degree": 2}, {"id": "index_updatecountdown", "label": "updateCountdown()", "color": {"background": "#F28E2B", "border": "#F28E2B", "highlight": {"background": "#ffffff", "border": "#F28E2B"}}, "size": 16.4, "font": {"size": 12, "color": "#ffffff"}, "title": "updateCountdown()", "community": 1, "community_name": "Countdown & Core State", "source_file": "index.html", "file_type": "code", "degree": 3}, {"id": "index_triggerunlock", "label": "triggerUnlock() master sequence", "color": {"background": "#4E79A7", "border": "#4E79A7", "highlight": {"background": "#ffffff", "border": "#4E79A7"}}, "size": 40.0, "font": {"size": 12, "color": "#ffffff"}, "title": "triggerUnlock() master sequence", "community": 0, "community_name": "Unlock Animation Sequence", "source_file": "index.html", "file_type": "code", "degree": 14}, {"id": "index_initthree", "label": "initThree()", "color": {"background": "#B07AA1", "border": "#B07AA1", "highlight": {"background": "#ffffff", "border": "#B07AA1"}}, "size": 16.4, "font": {"size": 12, "color": "#ffffff"}, "title": "initThree()", "community": 6, "community_name": "Three.js Particle Engine", "source_file": "index.html", "file_type": "code", "degree": 3}, {"id": "index_animthree", "label": "animThree()", "color": {"background": "#B07AA1", "border": "#B07AA1", "highlight": {"background": "#ffffff", "border": "#B07AA1"}}, "size": 16.4, "font": {"size": 12, "color": "#ffffff"}, "title": "animThree()", "community": 6, "community_name": "Three.js Particle Engine", "source_file": "index.html", "file_type": "code", "degree": 3}, {"id": "index_burstparticles", "label": "burstParticles()", "color": {"background": "#4E79A7", "border": "#4E79A7", "highlight": {"background": "#ffffff", "border": "#4E79A7"}}, "size": 14.3, "font": {"size": 0, "color": "#ffffff"}, "title": "burstParticles()", "community": 0, "community_name": "Unlock Animation Sequence", "source_file": "index.html", "file_type": "code", "degree": 2}, {"id": "index_createhearttexture", "label": "createHeartTexture()", "color": {"background": "#B07AA1", "border": "#B07AA1", "highlight": {"background": "#ffffff", "border": "#B07AA1"}}, "size": 12.1, "font": {"size": 0, "color": "#ffffff"}, "title": "createHeartTexture()", "community": 6, "community_name": "Three.js Particle Engine", "source_file": "index.html", "file_type": "code", "degree": 1}, {"id": "index_sampletextpositions", "label": "sampleTextPositions()", "color": {"background": "#4E79A7", "border": "#4E79A7", "highlight": {"background": "#ffffff", "border": "#4E79A7"}}, "size": 12.1, "font": {"size": 0, "color": "#ffffff"}, "title": "sampleTextPositions()", "community": 0, "community_name": "Unlock Animation Sequence", "source_file": "index.html", "file_type": "code", "degree": 1}, {"id": "index_formtextparticles", "label": "formTextParticles() spell SHREYA", "color": {"background": "#4E79A7", "border": "#4E79A7", "highlight": {"background": "#ffffff", "border": "#4E79A7"}}, "size": 16.4, "font": {"size": 12, "color": "#ffffff"}, "title": "formTextParticles() spell SHREYA", "community": 0, "community_name": "Unlock Animation Sequence", "source_file": "index.html", "file_type": "code", "degree": 3}, {"id": "index_buildreasons", "label": "buildReasons()", "color": {"background": "#4E79A7", "border": "#4E79A7", "highlight": {"background": "#ffffff", "border": "#4E79A7"}}, "size": 14.3, "font": {"size": 0, "color": "#ffffff"}, "title": "buildReasons()", "community": 0, "community_name": "Unlock Animation Sequence", "source_file": "index.html", "file_type": "code", "degree": 2}, {"id": "index_buildgallery", "label": "buildGallery()", "color": {"background": "#FF9DA7", "border": "#FF9DA7", "highlight": {"background": "#ffffff", "border": "#FF9DA7"}}, "size": 16.4, "font": {"size": 12, "color": "#ffffff"}, "title": "buildGallery()", "community": 7, "community_name": "Photo Gallery & Lightbox", "source_file": "index.html", "file_type": "code", "degree": 3}, {"id": "index_buildcake", "label": "buildCake()", "color": {"background": "#4E79A7", "border": "#4E79A7", "highlight": {"background": "#ffffff", "border": "#4E79A7"}}, "size": 12.1, "font": {"size": 0, "color": "#ffffff"}, "title": "buildCake()", "community": 0, "community_name": "Unlock Animation Sequence", "source_file": "index.html", "file_type": "code", "degree": 1}, {"id": "index_splitheroname", "label": "splitHeroName()", "color": {"background": "#4E79A7", "border": "#4E79A7", "highlight": {"background": "#ffffff", "border": "#4E79A7"}}, "size": 12.1, "font": {"size": 0, "color": "#ffffff"}, "title": "splitHeroName()", "community": 0, "community_name": "Unlock Animation Sequence", "source_file": "index.html", "file_type": "code", "degree": 1}, {"id": "index_registerscrollanimations", "label": "registerScrollAnimations()", "color": {"background": "#4E79A7", "border": "#4E79A7", "highlight": {"background": "#ffffff", "border": "#4E79A7"}}, "size": 14.3, "font": {"size": 0, "color": "#ffffff"}, "title": "registerScrollAnimations()", "community": 0, "community_name": "Unlock Animation Sequence", "source_file": "index.html", "file_type": "code", "degree": 2}, {"id": "index_initcardtilt", "label": "initCardTilt()", "color": {"background": "#4E79A7", "border": "#4E79A7", "highlight": {"background": "#ffffff", "border": "#4E79A7"}}, "size": 12.1, "font": {"size": 0, "color": "#ffffff"}, "title": "initCardTilt()", "community": 0, "community_name": "Unlock Animation Sequence", "source_file": "index.html", "file_type": "code", "degree": 1}, {"id": "index_spawnconfetti", "label": "spawnConfetti()", "color": {"background": "#4E79A7", "border": "#4E79A7", "highlight": {"background": "#ffffff", "border": "#4E79A7"}}, "size": 14.3, "font": {"size": 0, "color": "#ffffff"}, "title": "spawnConfetti()", "community": 0, "community_name": "Unlock Animation Sequence", "source_file": "index.html", "file_type": "code", "degree": 2}, {"id": "index_spawnfireworks", "label": "spawnFireworks()", "color": {"background": "#4E79A7", "border": "#4E79A7", "highlight": {"background": "#ffffff", "border": "#4E79A7"}}, "size": 12.1, "font": {"size": 0, "color": "#ffffff"}, "title": "spawnFireworks()", "community": 0, "community_name": "Unlock Animation Sequence", "source_file": "index.html", "file_type": "code", "degree": 1}, {"id": "index_spawnherosparkles", "label": "spawnHeroSparkles()", "color": {"background": "#4E79A7", "border": "#4E79A7", "highlight": {"background": "#ffffff", "border": "#4E79A7"}}, "size": 12.1, "font": {"size": 0, "color": "#ffffff"}, "title": "spawnHeroSparkles()", "community": 0, "community_name": "Unlock Animation Sequence", "source_file": "index.html", "file_type": "code", "degree": 1}, {"id": "index_startmusic", "label": "startMusic()", "color": {"background": "#F28E2B", "border": "#F28E2B", "highlight": {"background": "#ffffff", "border": "#F28E2B"}}, "size": 16.4, "font": {"size": 12, "color": "#ffffff"}, "title": "startMusic()", "community": 1, "community_name": "Countdown & Core State", "source_file": "index.html", "file_type": "code", "degree": 3}, {"id": "index_togglemusic", "label": "toggleMusic()", "color": {"background": "#F28E2B", "border": "#F28E2B", "highlight": {"background": "#ffffff", "border": "#F28E2B"}}, "size": 12.1, "font": {"size": 0, "color": "#ffffff"}, "title": "toggleMusic()", "community": 1, "community_name": "Countdown & Core State", "source_file": "index.html", "file_type": "code", "degree": 1}, {"id": "index_blowcandles", "label": "blowCandles()", "color": {"background": "#4E79A7", "border": "#4E79A7", "highlight": {"background": "#ffffff", "border": "#4E79A7"}}, "size": 12.1, "font": {"size": 0, "color": "#ffffff"}, "title": "blowCandles()", "community": 0, "community_name": "Unlock Animation Sequence", "source_file": "index.html", "file_type": "code", "degree": 1}, {"id": "index_spawncakeconfetti", "label": "spawnCakeConfetti()", "color": {"background": "#4E79A7", "border": "#4E79A7", "highlight": {"background": "#ffffff", "border": "#4E79A7"}}, "size": 14.3, "font": {"size": 0, "color": "#ffffff"}, "title": "spawnCakeConfetti()", "community": 0, "community_name": "Unlock Animation Sequence", "source_file": "index.html", "file_type": "code", "degree": 2}, {"id": "index_openlightbox", "label": "openLightbox()", "color": {"background": "#FF9DA7", "border": "#FF9DA7", "highlight": {"background": "#ffffff", "border": "#FF9DA7"}}, "size": 14.3, "font": {"size": 0, "color": "#ffffff"}, "title": "openLightbox()", "community": 7, "community_name": "Photo Gallery & Lightbox", "source_file": "index.html", "file_type": "code", "degree": 2}, {"id": "index_unlock_date", "label": "UNLOCK_DATE constant", "color": {"background": "#F28E2B", "border": "#F28E2B", "highlight": {"background": "#ffffff", "border": "#F28E2B"}}, "size": 12.1, "font": {"size": 0, "color": "#ffffff"}, "title": "UNLOCK_DATE constant", "community": 1, "community_name": "Countdown & Core State", "source_file": "index.html", "file_type": "code", "degree": 1}, {"id": "index_reasons_data", "label": "REASONS data array (20 reasons)", "color": {"background": "#4E79A7", "border": "#4E79A7", "highlight": {"background": "#ffffff", "border": "#4E79A7"}}, "size": 12.1, "font": {"size": 0, "color": "#ffffff"}, "title": "REASONS data array (20 reasons)", "community": 0, "community_name": "Unlock Animation Sequence", "source_file": "index.html", "file_type": "code", "degree": 1}, {"id": "index_photos_data", "label": "PHOTOS data array (6 polaroids)", "color": {"background": "#FF9DA7", "border": "#FF9DA7", "highlight": {"background": "#ffffff", "border": "#FF9DA7"}}, "size": 14.3, "font": {"size": 0, "color": "#ffffff"}, "title": "PHOTOS data array (6 polaroids)", "community": 7, "community_name": "Photo Gallery & Lightbox", "source_file": "index.html", "file_type": "code", "degree": 2}, {"id": "photos_photo_1_scene", "label": "Selfie of a Young Couple Indoors", "color": {"background": "#59A14F", "border": "#59A14F", "highlight": {"background": "#ffffff", "border": "#59A14F"}}, "size": 18.6, "font": {"size": 12, "color": "#ffffff"}, "title": "Selfie of a Young Couple Indoors", "community": 4, "community_name": "Couple Selfie (Yellow Walls)", "source_file": "photos/photo-1.JPG", "file_type": "image", "degree": 4}, {"id": "photos_photo_1_man", "label": "Smiling Bearded Man with Round Glasses", "color": {"background": "#59A14F", "border": "#59A14F", "highlight": {"background": "#ffffff", "border": "#59A14F"}}, "size": 16.4, "font": {"size": 12, "color": "#ffffff"}, "title": "Smiling Bearded Man with Round Glasses", "community": 4, "community_name": "Couple Selfie (Yellow Walls)", "source_file": "photos/photo-1.JPG", "file_type": "concept", "degree": 3}, {"id": "photos_photo_1_woman", "label": "Young Woman with Long Dark Hair in Blue T-Shirt", "color": {"background": "#59A14F", "border": "#59A14F", "highlight": {"background": "#ffffff", "border": "#59A14F"}}, "size": 18.6, "font": {"size": 12, "color": "#ffffff"}, "title": "Young Woman with Long Dark Hair in Blue T-Shirt", "community": 4, "community_name": "Couple Selfie (Yellow Walls)", "source_file": "photos/photo-1.JPG", "file_type": "concept", "degree": 4}, {"id": "photos_photo_1_shreya", "label": "Shreya (Birthday Subject)", "color": {"background": "#59A14F", "border": "#59A14F", "highlight": {"background": "#ffffff", "border": "#59A14F"}}, "size": 12.1, "font": {"size": 0, "color": "#ffffff"}, "title": "Shreya (Birthday Subject)", "community": 4, "community_name": "Couple Selfie (Yellow Walls)", "source_file": "photos/photo-1.JPG", "file_type": "concept", "degree": 1}, {"id": "photos_photo_1_couple_relationship", "label": "Affectionate Couple / Close Relationship", "color": {"background": "#59A14F", "border": "#59A14F", "highlight": {"background": "#ffffff", "border": "#59A14F"}}, "size": 14.3, "font": {"size": 0, "color": "#ffffff"}, "title": "Affectionate Couple / Close Relationship", "community": 4, "community_name": "Couple Selfie (Yellow Walls)", "source_file": "photos/photo-1.JPG", "file_type": "concept", "degree": 2}, {"id": "photos_photo_1_indoor_setting", "label": "Indoor Room with Yellow Walls", "color": {"background": "#59A14F", "border": "#59A14F", "highlight": {"background": "#ffffff", "border": "#59A14F"}}, "size": 12.1, "font": {"size": 0, "color": "#ffffff"}, "title": "Indoor Room with Yellow Walls", "community": 4, "community_name": "Couple Selfie (Yellow Walls)", "source_file": "photos/photo-1.JPG", "file_type": "concept", "degree": 1}, {"id": "photos_photo_1_mood", "label": "Happy, Warm, Intimate Mood", "color": {"background": "#59A14F", "border": "#59A14F", "highlight": {"background": "#ffffff", "border": "#59A14F"}}, "size": 12.1, "font": {"size": 0, "color": "#ffffff"}, "title": "Happy, Warm, Intimate Mood", "community": 4, "community_name": "Couple Selfie (Yellow Walls)", "source_file": "photos/photo-1.JPG", "file_type": "concept", "degree": 1}, {"id": "photos_photo_2_selfie_scene", "label": "Close-Up Couple Selfie Indoors", "color": {"background": "#EDC948", "border": "#EDC948", "highlight": {"background": "#ffffff", "border": "#EDC948"}}, "size": 18.6, "font": {"size": 12, "color": "#ffffff"}, "title": "Close-Up Couple Selfie Indoors", "community": 5, "community_name": "Couple Selfie (White Walls)", "source_file": "photos/photo-2.JPG", "file_type": "image", "degree": 4}, {"id": "photos_photo_2_young_man", "label": "Smiling Young Man with Round Glasses", "color": {"background": "#EDC948", "border": "#EDC948", "highlight": {"background": "#ffffff", "border": "#EDC948"}}, "size": 16.4, "font": {"size": 12, "color": "#ffffff"}, "title": "Smiling Young Man with Round Glasses", "community": 5, "community_name": "Couple Selfie (White Walls)", "source_file": "photos/photo-2.JPG", "file_type": "concept", "degree": 3}, {"id": "photos_photo_2_young_woman", "label": "Young Woman in Selfie", "color": {"background": "#EDC948", "border": "#EDC948", "highlight": {"background": "#ffffff", "border": "#EDC948"}}, "size": 16.4, "font": {"size": 12, "color": "#ffffff"}, "title": "Young Woman in Selfie", "community": 5, "community_name": "Couple Selfie (White Walls)", "source_file": "photos/photo-2.JPG", "file_type": "concept", "degree": 3}, {"id": "photos_photo_2_gray_hoodie", "label": "Gray Hoodie with Text Print", "color": {"background": "#EDC948", "border": "#EDC948", "highlight": {"background": "#ffffff", "border": "#EDC948"}}, "size": 12.1, "font": {"size": 0, "color": "#ffffff"}, "title": "Gray Hoodie with Text Print", "community": 5, "community_name": "Couple Selfie (White Walls)", "source_file": "photos/photo-2.JPG", "file_type": "concept", "degree": 1}, {"id": "photos_photo_2_indoor_setting", "label": "Indoor Setting with White Walls", "color": {"background": "#EDC948", "border": "#EDC948", "highlight": {"background": "#ffffff", "border": "#EDC948"}}, "size": 14.3, "font": {"size": 0, "color": "#ffffff"}, "title": "Indoor Setting with White Walls", "community": 5, "community_name": "Couple Selfie (White Walls)", "source_file": "photos/photo-2.JPG", "file_type": "concept", "degree": 2}, {"id": "photos_photo_2_metal_grille_window", "label": "Decorative Metal Grille Window", "color": {"background": "#EDC948", "border": "#EDC948", "highlight": {"background": "#ffffff", "border": "#EDC948"}}, "size": 12.1, "font": {"size": 0, "color": "#ffffff"}, "title": "Decorative Metal Grille Window", "community": 5, "community_name": "Couple Selfie (White Walls)", "source_file": "photos/photo-2.JPG", "file_type": "concept", "degree": 1}, {"id": "photos_photo_2_affectionate_mood", "label": "Warm Affectionate Candid Mood", "color": {"background": "#EDC948", "border": "#EDC948", "highlight": {"background": "#ffffff", "border": "#EDC948"}}, "size": 14.3, "font": {"size": 0, "color": "#ffffff"}, "title": "Warm Affectionate Candid Mood", "community": 5, "community_name": "Couple Selfie (White Walls)", "source_file": "photos/photo-2.JPG", "file_type": "concept", "degree": 2}, {"id": "photos_photo_3_scene", "label": "Indoor Selfie of a Couple", "color": {"background": "#76B7B2", "border": "#76B7B2", "highlight": {"background": "#ffffff", "border": "#76B7B2"}}, "size": 14.3, "font": {"size": 0, "color": "#ffffff"}, "title": "Indoor Selfie of a Couple", "community": 3, "community_name": "Couple Selfie (Carved Wood)", "source_file": "photos/photo-3.JPG", "file_type": "image", "degree": 2}, {"id": "photos_photo_3_young_woman", "label": "Smiling Young Woman with Long Dark Hair", "color": {"background": "#76B7B2", "border": "#76B7B2", "highlight": {"background": "#ffffff", "border": "#76B7B2"}}, "size": 16.4, "font": {"size": 12, "color": "#ffffff"}, "title": "Smiling Young Woman with Long Dark Hair", "community": 3, "community_name": "Couple Selfie (Carved Wood)", "source_file": "photos/photo-3.JPG", "file_type": "concept", "degree": 3}, {"id": "photos_photo_3_man_glasses", "label": "Smiling Bearded Man Wearing Glasses", "color": {"background": "#76B7B2", "border": "#76B7B2", "highlight": {"background": "#ffffff", "border": "#76B7B2"}}, "size": 14.3, "font": {"size": 0, "color": "#ffffff"}, "title": "Smiling Bearded Man Wearing Glasses", "community": 3, "community_name": "Couple Selfie (Carved Wood)", "source_file": "photos/photo-3.JPG", "file_type": "concept", "degree": 2}, {"id": "photos_photo_3_couple", "label": "Couple Posing Together", "color": {"background": "#76B7B2", "border": "#76B7B2", "highlight": {"background": "#ffffff", "border": "#76B7B2"}}, "size": 18.6, "font": {"size": 12, "color": "#ffffff"}, "title": "Couple Posing Together", "community": 3, "community_name": "Couple Selfie (Carved Wood)", "source_file": "photos/photo-3.JPG", "file_type": "concept", "degree": 4}, {"id": "photos_photo_3_ethnic_attire", "label": "Patterned Ethnic Top and Jhumka Earrings", "color": {"background": "#76B7B2", "border": "#76B7B2", "highlight": {"background": "#ffffff", "border": "#76B7B2"}}, "size": 12.1, "font": {"size": 0, "color": "#ffffff"}, "title": "Patterned Ethnic Top and Jhumka Earrings", "community": 3, "community_name": "Couple Selfie (Carved Wood)", "source_file": "photos/photo-3.JPG", "file_type": "concept", "degree": 1}, {"id": "photos_photo_3_grey_tshirt", "label": "Grey Graphic T-Shirt", "color": {"background": "#76B7B2", "border": "#76B7B2", "highlight": {"background": "#ffffff", "border": "#76B7B2"}}, "size": 12.1, "font": {"size": 0, "color": "#ffffff"}, "title": "Grey Graphic T-Shirt", "community": 3, "community_name": "Couple Selfie (Carved Wood)", "source_file": "photos/photo-3.JPG", "file_type": "concept", "degree": 1}, {"id": "photos_photo_3_carved_wood_setting", "label": "Ornate Carved Dark Wood Interior", "color": {"background": "#76B7B2", "border": "#76B7B2", "highlight": {"background": "#ffffff", "border": "#76B7B2"}}, "size": 12.1, "font": {"size": 0, "color": "#ffffff"}, "title": "Ornate Carved Dark Wood Interior", "community": 3, "community_name": "Couple Selfie (Carved Wood)", "source_file": "photos/photo-3.JPG", "file_type": "concept", "degree": 1}, {"id": "photos_photo_3_warm_mood", "label": "Warm Affectionate Mood", "color": {"background": "#76B7B2", "border": "#76B7B2", "highlight": {"background": "#ffffff", "border": "#76B7B2"}}, "size": 12.1, "font": {"size": 0, "color": "#ffffff"}, "title": "Warm Affectionate Mood", "community": 3, "community_name": "Couple Selfie (Carved Wood)", "source_file": "photos/photo-3.JPG", "file_type": "concept", "degree": 1}, {"id": "photos_photo_3_shreya", "label": "Shreya (Birthday Subject)", "color": {"background": "#76B7B2", "border": "#76B7B2", "highlight": {"background": "#ffffff", "border": "#76B7B2"}}, "size": 12.1, "font": {"size": 0, "color": "#ffffff"}, "title": "Shreya (Birthday Subject)", "community": 3, "community_name": "Couple Selfie (Carved Wood)", "source_file": "photos/photo-3.JPG", "file_type": "concept", "degree": 1}, {"id": "photos_photo_5_scene", "label": "Childhood Studio Portrait Photograph", "color": {"background": "#E15759", "border": "#E15759", "highlight": {"background": "#ffffff", "border": "#E15759"}}, "size": 18.6, "font": {"size": 12, "color": "#ffffff"}, "title": "Childhood Studio Portrait Photograph", "community": 2, "community_name": "Childhood Studio Portrait", "source_file": "photos/photo-5.JPG", "file_type": "image", "degree": 4}, {"id": "photos_photo_5_young_girl", "label": "Young Girl Subject", "color": {"background": "#E15759", "border": "#E15759", "highlight": {"background": "#ffffff", "border": "#E15759"}}, "size": 22.9, "font": {"size": 12, "color": "#ffffff"}, "title": "Young Girl Subject", "community": 2, "community_name": "Childhood Studio Portrait", "source_file": "photos/photo-5.JPG", "file_type": "concept", "degree": 6}, {"id": "photos_photo_5_studio_passport_photo", "label": "Studio Passport-Style Photo", "color": {"background": "#E15759", "border": "#E15759", "highlight": {"background": "#ffffff", "border": "#E15759"}}, "size": 12.1, "font": {"size": 0, "color": "#ffffff"}, "title": "Studio Passport-Style Photo", "community": 2, "community_name": "Childhood Studio Portrait", "source_file": "photos/photo-5.JPG", "file_type": "concept", "degree": 1}, {"id": "photos_photo_5_teal_backdrop", "label": "Teal Studio Backdrop", "color": {"background": "#E15759", "border": "#E15759", "highlight": {"background": "#ffffff", "border": "#E15759"}}, "size": 12.1, "font": {"size": 0, "color": "#ffffff"}, "title": "Teal Studio Backdrop", "community": 2, "community_name": "Childhood Studio Portrait", "source_file": "photos/photo-5.JPG", "file_type": "concept", "degree": 1}, {"id": "photos_photo_5_pink_top", "label": "Pink Friend Print Top", "color": {"background": "#E15759", "border": "#E15759", "highlight": {"background": "#ffffff", "border": "#E15759"}}, "size": 12.1, "font": {"size": 0, "color": "#ffffff"}, "title": "Pink Friend Print Top", "community": 2, "community_name": "Childhood Studio Portrait", "source_file": "photos/photo-5.JPG", "file_type": "concept", "degree": 1}, {"id": "photos_photo_5_gold_necklace", "label": "Gold Necklaces", "color": {"background": "#E15759", "border": "#E15759", "highlight": {"background": "#ffffff", "border": "#E15759"}}, "size": 12.1, "font": {"size": 0, "color": "#ffffff"}, "title": "Gold Necklaces", "community": 2, "community_name": "Childhood Studio Portrait", "source_file": "photos/photo-5.JPG", "file_type": "concept", "degree": 1}, {"id": "photos_photo_5_bindi_tilak", "label": "Bindi and Forehead Tilak", "color": {"background": "#E15759", "border": "#E15759", "highlight": {"background": "#ffffff", "border": "#E15759"}}, "size": 14.3, "font": {"size": 0, "color": "#ffffff"}, "title": "Bindi and Forehead Tilak", "community": 2, "community_name": "Childhood Studio Portrait", "source_file": "photos/photo-5.JPG", "file_type": "concept", "degree": 2}, {"id": "photos_photo_5_printed_fabric", "label": "Printed Fabric Surface", "color": {"background": "#E15759", "border": "#E15759", "highlight": {"background": "#ffffff", "border": "#E15759"}}, "size": 12.1, "font": {"size": 0, "color": "#ffffff"}, "title": "Printed Fabric Surface", "community": 2, "community_name": "Childhood Studio Portrait", "source_file": "photos/photo-5.JPG", "file_type": "concept", "degree": 1}, {"id": "photos_photo_5_nostalgic_mood", "label": "Nostalgic Childhood Memory Mood", "color": {"background": "#E15759", "border": "#E15759", "highlight": {"background": "#ffffff", "border": "#E15759"}}, "size": 14.3, "font": {"size": 0, "color": "#ffffff"}, "title": "Nostalgic Childhood Memory Mood", "community": 2, "community_name": "Childhood Studio Portrait", "source_file": "photos/photo-5.JPG", "file_type": "concept", "degree": 2}, {"id": "photos_photo_5_shreya", "label": "Shreya (Likely Subject)", "color": {"background": "#E15759", "border": "#E15759", "highlight": {"background": "#ffffff", "border": "#E15759"}}, "size": 12.1, "font": {"size": 0, "color": "#ffffff"}, "title": "Shreya (Likely Subject)", "community": 2, "community_name": "Childhood Studio Portrait", "source_file": "photos/photo-5.JPG", "file_type": "concept", "degree": 1}];
+const RAW_EDGES = [{"from": "readme_birthday_website", "to": "plan_shreya_birthday", "label": "references", "title": "references [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "plan_shreya_birthday", "to": "design_shreya_birthday_spec", "label": "references", "title": "references [INFERRED]", "dashes": true, "width": 1, "color": {"opacity": 0.35}, "confidence": "INFERRED"}, {"from": "design_shreya_birthday_spec", "to": "concept_dom_hidden_reveal", "label": "references", "title": "references [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "design_shreya_birthday_spec", "to": "concept_locked_state", "label": "references", "title": "references [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "design_shreya_birthday_spec", "to": "concept_single_file_no_build", "label": "references", "title": "references [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "design_shreya_birthday_spec", "to": "concept_tum_hi_ho_music", "label": "references", "title": "references [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "design_shreya_birthday_spec", "to": "concept_unlock_sequence", "label": "references", "title": "references [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "concept_locked_state", "to": "concept_unlock_sequence", "label": "conceptually_related_to", "title": "conceptually_related_to [INFERRED]", "dashes": true, "width": 1, "color": {"opacity": 0.35}, "confidence": "INFERRED"}, {"from": "concept_locked_state", "to": "index_updatecountdown", "label": "implements", "title": "implements [INFERRED]", "dashes": true, "width": 1, "color": {"opacity": 0.35}, "confidence": "INFERRED"}, {"from": "concept_unlock_sequence", "to": "index_triggerunlock", "label": "implements", "title": "implements [INFERRED]", "dashes": true, "width": 1, "color": {"opacity": 0.35}, "confidence": "INFERRED"}, {"from": "concept_tum_hi_ho_music", "to": "index_startmusic", "label": "implements", "title": "implements [INFERRED]", "dashes": true, "width": 1, "color": {"opacity": 0.35}, "confidence": "INFERRED"}, {"from": "index_updatecountdown", "to": "index_triggerunlock", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "index_updatecountdown", "to": "index_unlock_date", "label": "references", "title": "references [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "index_triggerunlock", "to": "index_buildcake", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "index_triggerunlock", "to": "index_buildgallery", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "index_triggerunlock", "to": "index_buildreasons", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "index_triggerunlock", "to": "index_burstparticles", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "index_triggerunlock", "to": "index_formtextparticles", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "index_triggerunlock", "to": "index_initthree", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "index_triggerunlock", "to": "index_registerscrollanimations", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "index_triggerunlock", "to": "index_spawnconfetti", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "index_triggerunlock", "to": "index_spawnfireworks", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "index_triggerunlock", "to": "index_spawnherosparkles", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "index_triggerunlock", "to": "index_splitheroname", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "index_triggerunlock", "to": "index_startmusic", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "index_initthree", "to": "index_animthree", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "index_initthree", "to": "index_createhearttexture", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "index_animthree", "to": "index_animthree", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "index_burstparticles", "to": "index_formtextparticles", "label": "semantically_similar_to", "title": "semantically_similar_to [INFERRED]", "dashes": true, "width": 1, "color": {"opacity": 0.35}, "confidence": "INFERRED"}, {"from": "index_sampletextpositions", "to": "index_formtextparticles", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "index_buildreasons", "to": "index_reasons_data", "label": "references", "title": "references [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "index_buildgallery", "to": "index_openlightbox", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "index_buildgallery", "to": "index_photos_data", "label": "shares_data_with", "title": "shares_data_with [INFERRED]", "dashes": true, "width": 1, "color": {"opacity": 0.35}, "confidence": "INFERRED"}, {"from": "index_registerscrollanimations", "to": "index_initcardtilt", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "index_spawnconfetti", "to": "index_spawncakeconfetti", "label": "semantically_similar_to", "title": "semantically_similar_to [INFERRED]", "dashes": true, "width": 1, "color": {"opacity": 0.35}, "confidence": "INFERRED"}, {"from": "index_startmusic", "to": "index_togglemusic", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "index_blowcandles", "to": "index_spawncakeconfetti", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "index_openlightbox", "to": "index_photos_data", "label": "shares_data_with", "title": "shares_data_with [INFERRED]", "dashes": true, "width": 1, "color": {"opacity": 0.35}, "confidence": "INFERRED"}, {"from": "photos_photo_1_scene", "to": "photos_photo_1_indoor_setting", "label": "references", "title": "references [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "photos_photo_1_scene", "to": "photos_photo_1_man", "label": "references", "title": "references [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "photos_photo_1_scene", "to": "photos_photo_1_mood", "label": "conceptually_related_to", "title": "conceptually_related_to [INFERRED]", "dashes": true, "width": 1, "color": {"opacity": 0.35}, "confidence": "INFERRED"}, {"from": "photos_photo_1_scene", "to": "photos_photo_1_woman", "label": "references", "title": "references [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "photos_photo_1_man", "to": "photos_photo_1_couple_relationship", "label": "references", "title": "references [INFERRED]", "dashes": true, "width": 1, "color": {"opacity": 0.35}, "confidence": "INFERRED"}, {"from": "photos_photo_1_man", "to": "photos_photo_1_woman", "label": "conceptually_related_to", "title": "conceptually_related_to [INFERRED]", "dashes": true, "width": 1, "color": {"opacity": 0.35}, "confidence": "INFERRED"}, {"from": "photos_photo_1_woman", "to": "photos_photo_1_couple_relationship", "label": "references", "title": "references [INFERRED]", "dashes": true, "width": 1, "color": {"opacity": 0.35}, "confidence": "INFERRED"}, {"from": "photos_photo_1_woman", "to": "photos_photo_1_shreya", "label": "semantically_similar_to", "title": "semantically_similar_to [AMBIGUOUS]", "dashes": true, "width": 1, "color": {"opacity": 0.35}, "confidence": "AMBIGUOUS"}, {"from": "photos_photo_2_selfie_scene", "to": "photos_photo_2_affectionate_mood", "label": "conceptually_related_to", "title": "conceptually_related_to [INFERRED]", "dashes": true, "width": 1, "color": {"opacity": 0.35}, "confidence": "INFERRED"}, {"from": "photos_photo_2_selfie_scene", "to": "photos_photo_2_indoor_setting", "label": "references", "title": "references [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "photos_photo_2_selfie_scene", "to": "photos_photo_2_young_man", "label": "references", "title": "references [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "photos_photo_2_selfie_scene", "to": "photos_photo_2_young_woman", "label": "references", "title": "references [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "photos_photo_2_young_man", "to": "photos_photo_2_gray_hoodie", "label": "references", "title": "references [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "photos_photo_2_young_man", "to": "photos_photo_2_young_woman", "label": "conceptually_related_to", "title": "conceptually_related_to [INFERRED]", "dashes": true, "width": 1, "color": {"opacity": 0.35}, "confidence": "INFERRED"}, {"from": "photos_photo_2_young_woman", "to": "photos_photo_2_affectionate_mood", "label": "conceptually_related_to", "title": "conceptually_related_to [AMBIGUOUS]", "dashes": true, "width": 1, "color": {"opacity": 0.35}, "confidence": "AMBIGUOUS"}, {"from": "photos_photo_2_indoor_setting", "to": "photos_photo_2_metal_grille_window", "label": "references", "title": "references [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "photos_photo_3_scene", "to": "photos_photo_3_carved_wood_setting", "label": "references", "title": "references [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "photos_photo_3_scene", "to": "photos_photo_3_couple", "label": "references", "title": "references [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "photos_photo_3_young_woman", "to": "photos_photo_3_couple", "label": "references", "title": "references [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "photos_photo_3_young_woman", "to": "photos_photo_3_ethnic_attire", "label": "conceptually_related_to", "title": "conceptually_related_to [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "photos_photo_3_young_woman", "to": "photos_photo_3_shreya", "label": "semantically_similar_to", "title": "semantically_similar_to [AMBIGUOUS]", "dashes": true, "width": 1, "color": {"opacity": 0.35}, "confidence": "AMBIGUOUS"}, {"from": "photos_photo_3_man_glasses", "to": "photos_photo_3_couple", "label": "references", "title": "references [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "photos_photo_3_man_glasses", "to": "photos_photo_3_grey_tshirt", "label": "conceptually_related_to", "title": "conceptually_related_to [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "photos_photo_3_couple", "to": "photos_photo_3_warm_mood", "label": "conceptually_related_to", "title": "conceptually_related_to [INFERRED]", "dashes": true, "width": 1, "color": {"opacity": 0.35}, "confidence": "INFERRED"}, {"from": "photos_photo_5_scene", "to": "photos_photo_5_nostalgic_mood", "label": "conceptually_related_to", "title": "conceptually_related_to [INFERRED]", "dashes": true, "width": 1, "color": {"opacity": 0.35}, "confidence": "INFERRED"}, {"from": "photos_photo_5_scene", "to": "photos_photo_5_printed_fabric", "label": "references", "title": "references [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "photos_photo_5_scene", "to": "photos_photo_5_studio_passport_photo", "label": "conceptually_related_to", "title": "conceptually_related_to [INFERRED]", "dashes": true, "width": 1, "color": {"opacity": 0.35}, "confidence": "INFERRED"}, {"from": "photos_photo_5_scene", "to": "photos_photo_5_young_girl", "label": "references", "title": "references [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "photos_photo_5_young_girl", "to": "photos_photo_5_bindi_tilak", "label": "conceptually_related_to", "title": "conceptually_related_to [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "photos_photo_5_young_girl", "to": "photos_photo_5_gold_necklace", "label": "conceptually_related_to", "title": "conceptually_related_to [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "photos_photo_5_young_girl", "to": "photos_photo_5_pink_top", "label": "conceptually_related_to", "title": "conceptually_related_to [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "photos_photo_5_young_girl", "to": "photos_photo_5_shreya", "label": "semantically_similar_to", "title": "semantically_similar_to [AMBIGUOUS]", "dashes": true, "width": 1, "color": {"opacity": 0.35}, "confidence": "AMBIGUOUS"}, {"from": "photos_photo_5_young_girl", "to": "photos_photo_5_teal_backdrop", "label": "conceptually_related_to", "title": "conceptually_related_to [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "photos_photo_5_bindi_tilak", "to": "photos_photo_5_nostalgic_mood", "label": "conceptually_related_to", "title": "conceptually_related_to [INFERRED]", "dashes": true, "width": 1, "color": {"opacity": 0.35}, "confidence": "INFERRED"}];
+const LEGEND = [{"cid": 0, "color": "#4E79A7", "label": "Unlock Animation Sequence", "count": 15}, {"cid": 1, "color": "#F28E2B", "label": "Countdown &amp; Core State", "count": 12}, {"cid": 2, "color": "#E15759", "label": "Childhood Studio Portrait", "count": 10}, {"cid": 3, "color": "#76B7B2", "label": "Couple Selfie (Carved Wood)", "count": 9}, {"cid": 4, "color": "#59A14F", "label": "Couple Selfie (Yellow Walls)", "count": 7}, {"cid": 5, "color": "#EDC948", "label": "Couple Selfie (White Walls)", "count": 7}, {"cid": 6, "color": "#B07AA1", "label": "Three.js Particle Engine", "count": 3}, {"cid": 7, "color": "#FF9DA7", "label": "Photo Gallery &amp; Lightbox", "count": 3}, {"cid": 8, "color": "#9C755F", "label": "Local Dev Server Config", "count": 1}];
+
+// HTML-escape helper — prevents XSS when injecting graph data into innerHTML
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+// Build vis datasets
+const nodesDS = new vis.DataSet(RAW_NODES.map(n => ({
+  id: n.id, label: n.label, color: n.color, size: n.size,
+  font: n.font, title: n.title,
+  _community: n.community, _community_name: n.community_name,
+  _source_file: n.source_file, _file_type: n.file_type, _degree: n.degree,
+})));
+
+const edgesDS = new vis.DataSet(RAW_EDGES.map((e, i) => ({
+  id: i, from: e.from, to: e.to,
+  label: '',
+  title: e.title,
+  dashes: e.dashes,
+  width: e.width,
+  color: e.color,
+  arrows: { to: { enabled: true, scaleFactor: 0.5 } },
+})));
+
+const container = document.getElementById('graph');
+const network = new vis.Network(container, { nodes: nodesDS, edges: edgesDS }, {
+  physics: {
+    enabled: true,
+    solver: 'forceAtlas2Based',
+    forceAtlas2Based: {
+      gravitationalConstant: -60,
+      centralGravity: 0.005,
+      springLength: 120,
+      springConstant: 0.08,
+      damping: 0.4,
+      avoidOverlap: 0.8,
+    },
+    stabilization: { iterations: 200, fit: true },
+  },
+  interaction: {
+    hover: true,
+    tooltipDelay: 100,
+    hideEdgesOnDrag: true,
+    navigationButtons: false,
+    keyboard: false,
+  },
+  nodes: { shape: 'dot', borderWidth: 1.5 },
+  edges: { smooth: { type: 'continuous', roundness: 0.2 }, selectionWidth: 3 },
+});
+
+network.once('stabilizationIterationsDone', () => {
+  network.setOptions({ physics: { enabled: false } });
+});
+
+function showInfo(nodeId) {
+  const n = nodesDS.get(nodeId);
+  if (!n) return;
+  const neighborIds = network.getConnectedNodes(nodeId);
+  const neighborItems = neighborIds.map(nid => {
+    const nb = nodesDS.get(nid);
+    const color = nb ? nb.color.background : '#555';
+    return `<span class="neighbor-link" style="border-left-color:${esc(color)}" onclick="focusNode(${JSON.stringify(nid)})">${esc(nb ? nb.label : nid)}</span>`;
+  }).join('');
+  document.getElementById('info-content').innerHTML = `
+    <div class="field"><b>${esc(n.label)}</b></div>
+    <div class="field">Type: ${esc(n._file_type || 'unknown')}</div>
+    <div class="field">Community: ${esc(n._community_name)}</div>
+    <div class="field">Source: ${esc(n._source_file || '-')}</div>
+    <div class="field">Degree: ${n._degree}</div>
+    ${neighborIds.length ? `<div class="field" style="margin-top:8px;color:#aaa;font-size:11px">Neighbors (${neighborIds.length})</div><div id="neighbors-list">${neighborItems}</div>` : ''}
+  `;
+}
+
+function focusNode(nodeId) {
+  network.focus(nodeId, { scale: 1.4, animation: true });
+  network.selectNodes([nodeId]);
+  showInfo(nodeId);
+}
+
+// Track hovered node — hover detection is more reliable than click params
+let hoveredNodeId = null;
+network.on('hoverNode', params => {
+  hoveredNodeId = params.node;
+  container.style.cursor = 'pointer';
+});
+network.on('blurNode', () => {
+  hoveredNodeId = null;
+  container.style.cursor = 'default';
+});
+container.addEventListener('click', () => {
+  if (hoveredNodeId !== null) {
+    showInfo(hoveredNodeId);
+    network.selectNodes([hoveredNodeId]);
+  }
+});
+network.on('click', params => {
+  if (params.nodes.length > 0) {
+    showInfo(params.nodes[0]);
+  } else if (hoveredNodeId === null) {
+    document.getElementById('info-content').innerHTML = '<span class="empty">Click a node to inspect it</span>';
+  }
+});
+
+const searchInput = document.getElementById('search');
+const searchResults = document.getElementById('search-results');
+searchInput.addEventListener('input', () => {
+  const q = searchInput.value.toLowerCase().trim();
+  searchResults.innerHTML = '';
+  if (!q) { searchResults.style.display = 'none'; return; }
+  const matches = RAW_NODES.filter(n => n.label.toLowerCase().includes(q)).slice(0, 20);
+  if (!matches.length) { searchResults.style.display = 'none'; return; }
+  searchResults.style.display = 'block';
+  matches.forEach(n => {
+    const el = document.createElement('div');
+    el.className = 'search-item';
+    el.textContent = n.label;
+    el.style.borderLeft = `3px solid ${n.color.background}`;
+    el.style.paddingLeft = '8px';
+    el.onclick = () => {
+      network.focus(n.id, { scale: 1.5, animation: true });
+      network.selectNodes([n.id]);
+      showInfo(n.id);
+      searchResults.style.display = 'none';
+      searchInput.value = '';
+    };
+    searchResults.appendChild(el);
+  });
+});
+document.addEventListener('click', e => {
+  if (!searchResults.contains(e.target) && e.target !== searchInput)
+    searchResults.style.display = 'none';
+});
+
+const hiddenCommunities = new Set();
+
+const selectAllCb = document.getElementById('select-all-cb');
+
+function updateSelectAllState() {
+  const total = LEGEND.length;
+  const hidden = hiddenCommunities.size;
+  selectAllCb.checked = hidden === 0;
+  selectAllCb.indeterminate = hidden > 0 && hidden < total;
+}
+
+function toggleAllCommunities(hide) {
+  document.querySelectorAll('.legend-item').forEach(item => {
+    hide ? item.classList.add('dimmed') : item.classList.remove('dimmed');
+  });
+  document.querySelectorAll('.legend-cb').forEach(cb => {
+    cb.checked = !hide;
+  });
+  LEGEND.forEach(c => {
+    if (hide) hiddenCommunities.add(c.cid); else hiddenCommunities.delete(c.cid);
+  });
+  const updates = RAW_NODES.map(n => ({ id: n.id, hidden: hide }));
+  nodesDS.update(updates);
+  updateSelectAllState();
+}
+
+const legendEl = document.getElementById('legend');
+LEGEND.forEach(c => {
+  const item = document.createElement('div');
+  item.className = 'legend-item';
+  const cb = document.createElement('input');
+  cb.type = 'checkbox';
+  cb.className = 'legend-cb';
+  cb.checked = true;
+  cb.addEventListener('change', (e) => {
+    e.stopPropagation();
+    if (cb.checked) {
+      hiddenCommunities.delete(c.cid);
+      item.classList.remove('dimmed');
+    } else {
+      hiddenCommunities.add(c.cid);
+      item.classList.add('dimmed');
+    }
+    const updates = RAW_NODES
+      .filter(n => n.community === c.cid)
+      .map(n => ({ id: n.id, hidden: !cb.checked }));
+    nodesDS.update(updates);
+    updateSelectAllState();
+  });
+  item.innerHTML = `<div class="legend-dot" style="background:${c.color}"></div>
+    <span class="legend-label">${c.label}</span>
+    <span class="legend-count">${c.count}</span>`;
+  item.prepend(cb);
+  item.onclick = (e) => {
+    if (e.target === cb) return;
+    cb.checked = !cb.checked;
+    cb.dispatchEvent(new Event('change'));
+  };
+  legendEl.appendChild(item);
+});
+</script>
+<script>
+// Render hyperedges as shaded regions
+const hyperedges = [{"id": "unlock_orchestration_flow", "label": "Midnight unlock orchestration: countdown triggers timeline which builds content, inits 3D, and starts music", "nodes": ["index_updatecountdown", "index_triggerunlock", "index_initthree", "index_registerscrollanimations", "index_startmusic"], "relation": "participate_in", "confidence": "EXTRACTED", "confidence_score": 0.85, "source_file": "index.html"}, {"id": "threejs_particle_system", "label": "Three.js particle field: init, heart texture, animation loop, burst, and SHREYA text formation", "nodes": ["index_initthree", "index_createhearttexture", "index_animthree", "index_burstparticles", "index_formtextparticles"], "relation": "form", "confidence": "EXTRACTED", "confidence_score": 0.8, "source_file": "index.html"}, {"id": "spec_plan_readme_artifact_chain", "label": "Design spec drives implementation plan which produces README and index.html artifact", "nodes": ["design_shreya_birthday_spec", "plan_shreya_birthday", "readme_birthday_website"], "relation": "participate_in", "confidence": "INFERRED", "confidence_score": 0.75, "source_file": "docs/superpowers/plans/2026-05-23-shreya-birthday.md"}];
+// afterDrawing passes ctx already transformed to network coordinate space.
+// Draw node positions raw — no manual pan/zoom/DPR math needed.
+network.on('afterDrawing', function(ctx) {
+    hyperedges.forEach(h => {
+        const positions = h.nodes
+            .map(nid => network.getPositions([nid])[nid])
+            .filter(p => p !== undefined);
+        if (positions.length < 2) return;
+        ctx.save();
+        ctx.globalAlpha = 0.12;
+        ctx.fillStyle = '#6366f1';
+        ctx.strokeStyle = '#6366f1';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        // Centroid and expanded hull in network coordinates
+        const cx = positions.reduce((s, p) => s + p.x, 0) / positions.length;
+        const cy = positions.reduce((s, p) => s + p.y, 0) / positions.length;
+        const expanded = positions.map(p => ({
+            x: cx + (p.x - cx) * 1.15,
+            y: cy + (p.y - cy) * 1.15
+        }));
+        ctx.moveTo(expanded[0].x, expanded[0].y);
+        expanded.slice(1).forEach(p => ctx.lineTo(p.x, p.y));
+        ctx.closePath();
+        ctx.fill();
+        ctx.globalAlpha = 0.4;
+        ctx.stroke();
+        // Label
+        ctx.globalAlpha = 0.8;
+        ctx.fillStyle = '#4f46e5';
+        ctx.font = 'bold 11px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(h.label, cx, cy - 5);
+        ctx.restore();
+    });
+});
+</script>
+</body>
+</html>
