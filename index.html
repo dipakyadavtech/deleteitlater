@@ -858,15 +858,12 @@
 
       /* ── Polaroid gallery ── */
       .polaroid-wrap {
-        flex-wrap: nowrap;
-        overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
-        justify-content: flex-start;
-        padding-bottom: 20px;
-        padding-left: 4px;
-        gap: 16px;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 18px;
+        padding: 0 12px 20px;
       }
-      .polaroid { width: 160px; }
+      .polaroid { width: 44vw; max-width: 170px; }
 
       /* ── Birthday cake ── */
       .cake        { overflow: hidden; border-radius: 8px; }
@@ -2405,9 +2402,9 @@ var PHOTOS = [
   { src: 'photos/photo-1.JPG', caption: 'Us 💕' },
   { src: 'photos/photo-2.JPG', caption: 'My favourite smile' },
   { src: 'photos/photo-3.JPG', caption: 'Always together' },
-  { src: 'photos/photo-4.JPG', caption: 'You & me' },
+  { src: 'photos/photo-4.jpg', caption: 'You & me' },
   { src: 'photos/photo-5.JPG', caption: 'Perfect moments' },
-  { src: 'photos/photo-6.JPG', caption: 'Forever like this' }
+  { src: 'photos/photo-6.jpg', caption: 'Forever like this' }
 ];
 
 var TIMELINE = [
