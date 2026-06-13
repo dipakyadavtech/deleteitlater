@@ -980,12 +980,12 @@
     }
     .coupons-grid {
       display: grid; grid-template-columns: repeat(3, 1fr);
-      gap: 22px; max-width: 920px; width: 100%;
+      gap: 24px; max-width: 960px; width: 100%;
       perspective: 1200px;
     }
     .coupon-outer { opacity: 0; transform: translateY(40px); }
     .coupon {
-      position: relative; height: 170px; cursor: pointer;
+      position: relative; height: 210px; cursor: pointer;
       transform-style: preserve-3d;
       transition: transform 0.8s cubic-bezier(0.35, 0.1, 0.2, 1);
     }
@@ -993,33 +993,33 @@
     .coupon-face {
       position: absolute; inset: 0;
       -webkit-backface-visibility: hidden; backface-visibility: hidden;
-      border-radius: 14px;
+      border-radius: 16px;
       display: flex; flex-direction: column;
       align-items: center; justify-content: center;
-      gap: 7px; padding: 16px; text-align: center;
+      gap: 10px; padding: 20px; text-align: center;
     }
     .coupon-front {
-      background: rgba(255,107,157,0.06);
-      border: 1.5px dashed rgba(201,150,90,0.55);
-      box-shadow: inset 0 0 30px rgba(255,107,157,0.05);
+      background: linear-gradient(135deg, rgba(255,107,157,0.13), rgba(138,43,226,0.10));
+      border: 1.5px dashed rgba(201,150,90,0.7);
+      box-shadow: inset 0 0 40px rgba(255,107,157,0.08), 0 4px 20px rgba(0,0,0,0.3);
       transition: box-shadow 0.3s, border-color 0.3s;
     }
     .coupon:hover .coupon-front {
-      border-color: rgba(240,192,112,0.9);
-      box-shadow: inset 0 0 30px rgba(255,107,157,0.1), 0 14px 40px rgba(255,107,157,0.18);
+      border-color: rgba(240,192,112,1);
+      box-shadow: inset 0 0 40px rgba(255,107,157,0.15), 0 14px 40px rgba(255,107,157,0.22);
     }
-    .coupon-icon { font-size: 1.9rem; }
+    .coupon-icon { font-size: 2.2rem; }
     .coupon-title {
       font-family: 'Dancing Script', cursive;
-      font-size: 1.35rem; color: var(--gold-light);
+      font-size: 1.5rem; color: var(--gold-light);
     }
     .coupon-text {
       font-family: 'Cormorant Garamond', serif; font-style: italic;
-      font-size: 0.88rem; line-height: 1.5; color: var(--blush);
+      font-size: 0.92rem; line-height: 1.55; color: var(--blush);
     }
     .coupon-flip-hint {
-      font-size: 0.5rem; letter-spacing: 2.5px; text-transform: uppercase;
-      color: rgba(255,255,255,0.3); margin-top: 4px;
+      font-size: 0.62rem; letter-spacing: 2px; text-transform: uppercase;
+      color: rgba(255,211,232,0.55); margin-top: 6px;
     }
     .coupon-back {
       transform: rotateY(180deg);
@@ -2325,6 +2325,7 @@ document.addEventListener('keydown', function (e) { if (e.key === 'Escape') clos
 /* ── Cake candles ── */
 function buildCake() {
   var wrap = document.getElementById('candles');
+  if (wrap.children.length) return;
   for (var i = 0; i < 7; i++) {
     var candle = document.createElement('div');
     candle.className = 'candle';
@@ -2410,16 +2411,16 @@ var PHOTOS = [
 ];
 
 var TIMELINE = [
-  { date: 'Where it all began', icon: '✨', title: 'The Day We Met',
-    text: 'Some stories start quietly. Ours started the moment you smiled at me — and honestly, I never stood a chance.' },
-  { date: 'Our first date', icon: '🦋', title: 'The Butterflies',
-    text: 'I rehearsed what I would say a hundred times. Then you laughed, and I forgot every single word of it.' },
-  { date: 'The moment I knew', icon: '💘', title: 'Falling For You',
-    text: 'It wasn’t one big moment — it was a thousand small ones. Home stopped being a place and started being you.' },
-  { date: 'Every day since', icon: '🌙', title: 'Us, Becoming Us',
-    text: 'Inside jokes, late-night calls, your head on my shoulder. We built a little world no one else can enter.' },
-  { date: 'June 14th, 2026', icon: '🎂', title: 'Your 20th Birthday',
-    text: 'Twenty years of you existing. Two decades of the universe quietly getting it right — and me, lucky enough to watch you shine.' }
+  { date: "22nd January 2024", icon: "✨", title: "The Day We Met",
+    text: "Some stories start quietly. Ours started the moment you smiled at me — and honestly, I never stood a chance." },
+  { date: "15th March 2024", icon: "💘", title: "We Became Us",
+    text: "The day you said yes — and everything changed. Home stopped being a place and started being you." },
+  { date: "15th August 2024", icon: "🦋", title: "Our First Meetup",
+    text: "I had rehearsed what I would say a hundred times. Then you laughed, and I forgot every single word of it. The beginning of forever, in person." },
+  { date: "Every day since", icon: "🌙", title: "Us, Becoming Us",
+    text: "Inside jokes, late-night calls, your head on my shoulder. We built a little world no one else can enter." },
+  { date: "June 14th, 2026", icon: "🎂", title: "Your 20th Birthday",
+    text: "Twenty years of you existing. Two decades of the universe quietly getting it right — and me, lucky enough to celebrate every birthday with you, forever." }
 ];
 
 var COUPONS = [
@@ -2433,6 +2434,7 @@ var COUPONS = [
 
 function buildReasons() {
   var grid = document.getElementById('reasons-grid');
+  if (grid.children.length) return;
   REASONS.forEach(function (r, i) {
     var card = document.createElement('div');
     card.className = 'reason-card';
@@ -2444,6 +2446,7 @@ function buildReasons() {
 
 function buildGallery() {
   var wrap = document.getElementById('polaroid-wrap');
+  if (wrap.children.length) return;
   PHOTOS.forEach(function (p) {
     var div = document.createElement('div');
     div.className = 'polaroid';
@@ -2474,6 +2477,7 @@ function buildGallery() {
 
 function buildTimeline() {
   var wrap = document.getElementById('timeline');
+  if (wrap.children.length) return;
   TIMELINE.forEach(function (m) {
     var item = document.createElement('div');
     item.className = 'tl-item';
@@ -2490,6 +2494,7 @@ function buildTimeline() {
 
 function buildCoupons() {
   var grid = document.getElementById('coupons-grid');
+  if (grid.children.length) return;
   COUPONS.forEach(function (c, i) {
     var outer = document.createElement('div');
     outer.className = 'coupon-outer';
@@ -2764,6 +2769,7 @@ var OPEN_WHEN = [
 
 function buildOpenWhen() {
   var grid = document.getElementById('ow-grid');
+  if (grid.children.length) return;
   OPEN_WHEN.forEach(function (l) {
     var card = document.createElement('div');
     card.className = 'ow-card';
