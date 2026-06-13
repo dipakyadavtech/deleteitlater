@@ -1821,6 +1821,20 @@
 </div>
 <iframe id="yt-frame" allow="autoplay"></iframe>
 
+<!-- Mobile YouTube mini-player -->
+<div id="yt-mobile-overlay" onclick="closeMobilePlayer(event)" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:9999;align-items:center;justify-content:center;">
+  <div style="position:relative;width:90vw;max-width:360px;background:#000;border-radius:16px;overflow:hidden;box-shadow:0 8px 40px rgba(255,107,157,0.4);">
+    <div style="padding:12px 16px;background:rgba(5,5,16,0.95);display:flex;justify-content:space-between;align-items:center;">
+      <span style="color:#f8a5c2;font-family:'Dancing Script',cursive;font-size:1.1rem;">🎵 Happy Birthday</span>
+      <span onclick="closeMobilePlayer(event)" style="color:rgba(255,255,255,0.6);font-size:1.2rem;cursor:pointer;padding:4px 8px;">✕</span>
+    </div>
+    <iframe id="yt-mobile-frame" width="100%" height="200"
+      allow="autoplay; fullscreen"
+      allowfullscreen
+      style="display:block;border:none;"></iframe>
+  </div>
+</div>
+
 <!-- ══════════════════════════════════════════════════════════
      SCRIPTS
 ══════════════════════════════════════════════════════════ -->
@@ -2700,24 +2714,57 @@ function spawnFireworks() {
 <script>
 /* ── Music ── */
 var musicPlaying = false;
+var YT_ID = 'MNhKgf0yU0Q';
+var isMobileDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+
 function startMusic() {
   document.getElementById('yt-frame').src =
-    'https://www.youtube.com/embed/MNhKgf0yU0Q?autoplay=1&mute=0&loop=1&playlist=MNhKgf0yU0Q&enablejsapi=1';
+    'https://www.youtube.com/embed/' + YT_ID + '?autoplay=1&mute=0&loop=1&playlist=' + YT_ID + '&enablejsapi=1';
   musicPlaying = true;
 }
+
+function openMobilePlayer() {
+  var overlay = document.getElementById('yt-mobile-overlay');
+  var frame   = document.getElementById('yt-mobile-frame');
+  frame.src = 'https://www.youtube.com/embed/' + YT_ID + '?autoplay=1&playsinline=1&loop=1&playlist=' + YT_ID;
+  overlay.style.display = 'flex';
+  musicPlaying = true;
+  document.querySelectorAll('.music-bar').forEach(function(b){ b.classList.remove('paused'); });
+}
+
+function closeMobilePlayer(e) {
+  if (e && e.target !== document.getElementById('yt-mobile-overlay') && !e.target.matches('span[onclick]')) return;
+  var overlay = document.getElementById('yt-mobile-overlay');
+  var frame   = document.getElementById('yt-mobile-frame');
+  frame.src = '';
+  overlay.style.display = 'none';
+  musicPlaying = false;
+  document.querySelectorAll('.music-bar').forEach(function(b){ b.classList.add('paused'); });
+}
+
 function toggleMusic() {
-  var bars = document.querySelectorAll('.music-bar');
+  var bars   = document.querySelectorAll('.music-bar');
   var player = document.getElementById('music-player');
   player.classList.remove('pulse-invite');
+
+  if (isMobileDevice) {
+    if (!musicPlaying) {
+      openMobilePlayer();
+    } else {
+      closeMobilePlayer();
+    }
+    return;
+  }
+
   if (!musicPlaying) {
     startMusic();
-    bars.forEach(function (b) { b.classList.remove('paused'); });
+    bars.forEach(function(b){ b.classList.remove('paused'); });
   } else {
     document.getElementById('yt-frame').contentWindow.postMessage(
       '{"event":"command","func":"pauseVideo","args":""}', '*'
     );
     musicPlaying = false;
-    bars.forEach(function (b) { b.classList.add('paused'); });
+    bars.forEach(function(b){ b.classList.add('paused'); });
   }
 }
 </script>
@@ -3200,9 +3247,7 @@ function triggerUnlock() {
   /* 4.3s — music player appears */
   tl.to(player, { opacity: 1, duration: 0.6, ease: 'power2.out',
     onStart: function () {
-      var isMobile = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
-      if (isMobile) {
-        /* Mobile: autoplay blocked — pulse player to invite tap */
+      if (isMobileDevice) {
         player.classList.add('pulse-invite');
       } else {
         startMusic();
