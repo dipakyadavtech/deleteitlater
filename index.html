@@ -690,6 +690,18 @@
     }
     @keyframes rose-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 
+    /* ── Love gate ── */
+    .lg-hearts { font-size: 2rem; margin-bottom: 24px; animation: lg-float 3s ease-in-out infinite; }
+    @keyframes lg-float {
+      0%,100% { transform: translateY(0) scale(1); }
+      50%      { transform: translateY(-12px) scale(1.15); }
+    }
+    @keyframes yes-pulse {
+      0%,100% { box-shadow: 0 6px 28px rgba(255,107,157,0.55), 0 0 0 0 rgba(255,107,157,0.4); }
+      50%      { box-shadow: 0 6px 28px rgba(255,107,157,0.55), 0 0 0 14px rgba(255,107,157,0); }
+    }
+    #btn-yes { animation: yes-pulse 2s ease-in-out infinite; }
+
     /* ═══════════════════════════════════════════
        FLOATING MUSIC PLAYER
     ═══════════════════════════════════════════ */
@@ -1535,10 +1547,53 @@
 <!-- Flash -->
 <div id="flash"></div>
 
-<!-- Tap-to-begin overlay (mobile only, ensures audio can autoplay) -->
-<div id="tap-begin" style="display:none;position:fixed;inset:0;z-index:99990;align-items:center;justify-content:center;flex-direction:column;gap:20px;background:rgba(5,5,16,0.92);backdrop-filter:blur(8px);">
-  <div style="font-family:'Dancing Script',cursive;font-size:2.2rem;color:#f8a5c2;text-align:center;line-height:1.3;">Happy Birthday<br>Shreya 💕</div>
-  <button onclick="beginExperience()" style="background:linear-gradient(135deg,#ff6b9d,#8a2be2);border:none;color:#fff;font-family:'Montserrat',sans-serif;font-size:1rem;letter-spacing:2px;text-transform:uppercase;padding:16px 40px;border-radius:50px;cursor:pointer;box-shadow:0 0 30px rgba(255,107,157,0.5);animation:music-pulse 1.6s ease-in-out infinite;">✨ Tap to Begin</button>
+<!-- Love gate overlay -->
+<div id="tap-begin" style="display:none;position:fixed;inset:0;z-index:99990;background:var(--deep-night);overflow:hidden;">
+  <canvas id="love-canvas" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;"></canvas>
+  <div id="love-gate" style="position:relative;z-index:1;width:100%;height:100%;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:0;padding:24px;text-align:center;">
+
+    <!-- Hearts rain top decoration -->
+    <div class="lg-hearts" aria-hidden="true">💕</div>
+
+    <!-- Sub-label -->
+    <div style="font-family:'Montserrat',sans-serif;font-size:0.65rem;letter-spacing:4px;text-transform:uppercase;color:rgba(255,211,232,0.45);margin-bottom:18px;">A question before we begin</div>
+
+    <!-- Main question -->
+    <div style="font-family:'Dancing Script',cursive;font-size:clamp(2.4rem,9vw,3.8rem);color:#f8a5c2;line-height:1.2;margin-bottom:8px;text-shadow:0 0 40px rgba(255,107,157,0.5);">
+      Do you love me? 💕
+    </div>
+    <div style="font-family:'Cormorant Garamond',serif;font-style:italic;font-size:clamp(0.9rem,3vw,1.15rem);color:rgba(255,211,232,0.55);margin-bottom:48px;">
+      think carefully before you answer...
+    </div>
+
+    <!-- Buttons -->
+    <div id="btn-wrap" style="position:relative;width:100%;max-width:360px;height:80px;">
+      <button id="btn-yes" onclick="beginExperience()"
+        style="position:absolute;left:50%;transform:translateX(calc(-50% - 70px));
+               background:linear-gradient(135deg,#ff6b9d,#c9527a);
+               border:none;color:#fff;font-family:'Montserrat',sans-serif;
+               font-size:1rem;font-weight:600;letter-spacing:2px;
+               padding:15px 38px;border-radius:50px;cursor:pointer;
+               box-shadow:0 6px 28px rgba(255,107,157,0.55);
+               transition:transform 0.2s,box-shadow 0.2s;
+               white-space:nowrap;">
+        Yes, always 💕
+      </button>
+      <button id="btn-no" onmouseenter="runAway()" ontouchstart="runAway()"
+        style="position:absolute;left:50%;transform:translateX(calc(-50% + 70px));
+               background:transparent;
+               border:1.5px solid rgba(255,107,157,0.35);color:rgba(255,211,232,0.5);
+               font-family:'Montserrat',sans-serif;font-size:1rem;font-weight:400;
+               letter-spacing:1px;padding:15px 38px;border-radius:50px;cursor:pointer;
+               transition:transform 0.15s ease;white-space:nowrap;">
+        No
+      </button>
+    </div>
+
+    <!-- Teasing hint (appears after first dodge) -->
+    <div id="no-hint" style="margin-top:28px;font-family:'Cormorant Garamond',serif;font-style:italic;font-size:0.9rem;color:rgba(255,107,157,0.6);opacity:0;transition:opacity 0.5s;min-height:22px;"></div>
+
+  </div>
 </div>
 
 <!-- ═══════════ LOCKED SCREEN ═══════════ -->
@@ -1997,6 +2052,7 @@ window.addEventListener('load', function () {
     if (isMobileDevice) {
       var tb = document.getElementById('tap-begin');
       tb.style.display = 'flex';
+      initLoveCanvas();
     } else {
       triggerUnlock();
     }
@@ -2718,9 +2774,86 @@ function spawnFireworks() {
 var musicPlaying = false;
 var bgAudio = null;
 
+var noDodgeCount = 0;
+var noHints = [
+  'Nice try 😏',
+  'Nope, run away! 💨',
+  'That button is shy 🙈',
+  'You know the answer... 💕',
+  'It\'s not gonna let you 😂',
+  'Just say yes already! 🥺',
+  'The "No" button has commitment issues 😅',
+  'Maybe try the pink one? 💕'
+];
+
+function runAway() {
+  var btn = document.getElementById('btn-no');
+  var wrap = document.getElementById('btn-wrap');
+  var wrapRect = wrap.getBoundingClientRect();
+  var btnW = btn.offsetWidth;
+  var btnH = btn.offsetHeight;
+  var maxX = wrapRect.width  - btnW;
+  var maxY = window.innerHeight - wrapRect.top - btnH - 20;
+  var minY = -wrapRect.top + 20;
+
+  var rx = Math.random() * maxX - maxX / 2;
+  var ry = Math.random() * (maxY - minY) + minY;
+
+  btn.style.transition = 'left 0.25s ease, top 0.25s ease';
+  btn.style.position   = 'fixed';
+  btn.style.left = (wrapRect.left + wrapRect.width / 2 + 70 + rx) + 'px';
+  btn.style.top  = (wrapRect.top  + (wrapRect.height / 2) + ry) + 'px';
+  btn.style.transform = 'none';
+
+  noDodgeCount++;
+  var hint = document.getElementById('no-hint');
+  hint.textContent = noHints[Math.min(noDodgeCount - 1, noHints.length - 1)];
+  hint.style.opacity = '1';
+}
+
 function beginExperience() {
   document.getElementById('tap-begin').style.display = 'none';
   triggerUnlock();
+}
+
+/* Floating hearts canvas on love gate */
+function initLoveCanvas() {
+  var canvas = document.getElementById('love-canvas');
+  if (!canvas) return;
+  var ctx = canvas.getContext('2d');
+  canvas.width  = window.innerWidth;
+  canvas.height = window.innerHeight;
+  var hearts = Array.from({length: 28}, function() {
+    return {
+      x: Math.random() * canvas.width,
+      y: Math.random() * canvas.height,
+      size: 10 + Math.random() * 18,
+      speed: 0.4 + Math.random() * 0.8,
+      opacity: 0.08 + Math.random() * 0.18,
+      drift: (Math.random() - 0.5) * 0.5
+    };
+  });
+  function drawHeart(ctx, x, y, size, opacity) {
+    ctx.save();
+    ctx.globalAlpha = opacity;
+    ctx.fillStyle = '#ff6b9d';
+    ctx.font = size + 'px serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('💕', x, y);
+    ctx.restore();
+  }
+  function loop() {
+    if (!document.getElementById('tap-begin') || document.getElementById('tap-begin').style.display === 'none') return;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    hearts.forEach(function(h) {
+      drawHeart(ctx, h.x, h.y, h.size, h.opacity);
+      h.y -= h.speed;
+      h.x += h.drift;
+      if (h.y < -30) { h.y = canvas.height + 30; h.x = Math.random() * canvas.width; }
+    });
+    requestAnimationFrame(loop);
+  }
+  loop();
 }
 
 function startMusic() {
