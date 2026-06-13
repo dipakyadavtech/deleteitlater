@@ -1552,18 +1552,18 @@
   <canvas id="love-canvas" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;"></canvas>
   <div id="love-gate" style="position:relative;z-index:1;width:100%;height:100%;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:0;padding:24px;text-align:center;">
 
-    <!-- Hearts rain top decoration -->
-    <div class="lg-hearts" aria-hidden="true">💕</div>
+    <!-- Birthday cake decoration -->
+    <div class="lg-hearts" aria-hidden="true">🎂</div>
 
     <!-- Sub-label -->
-    <div style="font-family:'Montserrat',sans-serif;font-size:0.65rem;letter-spacing:4px;text-transform:uppercase;color:rgba(255,211,232,0.45);margin-bottom:18px;">A question before we begin</div>
+    <div style="font-family:'Montserrat',sans-serif;font-size:0.65rem;letter-spacing:4px;text-transform:uppercase;color:rgba(255,211,232,0.45);margin-bottom:18px;">something special awaits you</div>
 
     <!-- Main question -->
-    <div style="font-family:'Dancing Script',cursive;font-size:clamp(2.4rem,9vw,3.8rem);color:#f8a5c2;line-height:1.2;margin-bottom:8px;text-shadow:0 0 40px rgba(255,107,157,0.5);">
-      Do you love me? 💕
+    <div style="font-family:'Dancing Script',cursive;font-size:clamp(2.2rem,8.5vw,3.6rem);color:#f8a5c2;line-height:1.2;margin-bottom:8px;text-shadow:0 0 40px rgba(255,107,157,0.5);">
+      Ready for your birthday surprise? 🎁
     </div>
     <div style="font-family:'Cormorant Garamond',serif;font-style:italic;font-size:clamp(0.9rem,3vw,1.15rem);color:rgba(255,211,232,0.55);margin-bottom:48px;">
-      think carefully before you answer...
+      (it's been made with a lot of love...)
     </div>
 
     <!-- Buttons -->
@@ -1576,7 +1576,7 @@
                box-shadow:0 6px 28px rgba(255,107,157,0.55);
                transition:transform 0.2s,box-shadow 0.2s;
                white-space:nowrap;flex-shrink:0;">
-        Yes, always 💕
+        Take me in 🎂
       </button>
       <button id="btn-no" onmouseenter="runAway()" ontouchstart="runAway()"
         style="background:transparent;
@@ -1584,7 +1584,7 @@
                font-family:'Montserrat',sans-serif;font-size:1rem;font-weight:400;
                letter-spacing:1px;padding:15px 36px;border-radius:50px;cursor:pointer;
                white-space:nowrap;flex-shrink:0;">
-        No
+        Not yet
       </button>
     </div>
 
@@ -2774,14 +2774,14 @@ var bgAudio = null;
 
 var noDodgeCount = 0;
 var noHints = [
-  'Nice try 😏',
-  'Nope, run away! 💨',
-  'That button is shy 🙈',
-  'You know the answer... 💕',
-  'It\'s not gonna let you 😂',
-  'Just say yes already! 🥺',
-  'The "No" button has commitment issues 😅',
-  'Maybe try the pink one? 💕'
+  'wrong answer, birthday girl! 🎂',
+  'your surprise is waiting... 🎁',
+  'that button is running from you 💨',
+  'the cake will get cold 🎂😅',
+  'just a tiny tap on the pink one 🥺',
+  'stubborn on your birthday? really? 😏',
+  'the surprise gets better the sooner you click 💕',
+  'okay fine, keep trying 😂'
 ];
 
 function runAway() {
