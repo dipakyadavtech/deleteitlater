@@ -2825,6 +2825,7 @@ function runAway() {
 
 function beginExperience() {
   document.getElementById('tap-begin').style.display = 'none';
+  startMusic(); // call synchronously inside user gesture so iOS allows autoplay
   triggerUnlock();
 }
 
